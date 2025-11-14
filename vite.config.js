@@ -8,10 +8,6 @@ export default defineConfig({
     port: 5173
   },
   build: {
-    outDir: "dist",
-    sourcemap: false
-  },
-  optimizeDeps: {
-    include: ["react", "react-dom", "react-router-dom"]
+    outDir: "dist"
   }
 });
