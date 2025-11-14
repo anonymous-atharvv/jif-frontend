@@ -1,33 +1,77 @@
+// src/api.js
 import axios from "axios";
 
-const BASE_URL = "https://anonymousananta-jif-backend.hf.space";
+// 🔥 Your live backend URL
+export const BASE_URL = "https://anonymousananta-jif-backend.hf.space";
 
-const instance = axios.create({
+// ------------------------------------------------------------
+// Create axios instance
+// ------------------------------------------------------------
+const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 45000,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  timeout: 60000, // 60 sec
 });
 
-// attach token to headers + optionally to JSON body if required
-instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("jif_token");
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-    // if POST and json, backend also accepts token in body for some endpoints — we add only if missing
-    if (config.method === "post" && config.data && !(config.data instanceof FormData)) {
-      config.data = { token: token, ...config.data };
-    }
-  }
-  return config;
-}, (err) => Promise.reject(err));
+// ------------------------------------------------------------
+// Auto-Inject Token for All Requests
+// ------------------------------------------------------------
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("jif_token");
 
-export default {
-  get: (url, opts) => instance.get(url, opts),
-  post: (url, data, opts) => instance.post(url, data, opts),
-  put: (url, data, opts) => instance.put(url, data, opts),
-  delete: (url, opts) => instance.delete(url, opts),
-  raw: instance
+    // For all normal JSON requests → use Authorization header
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// ------------------------------------------------------------
+// Helper (POST with token in body for HF backend compatibility)
+// ------------------------------------------------------------
+export const postWithToken = (url, data = {}) => {
+  const token = localStorage.getItem("jif_token");
+
+  // Only attach token in body if NOT FormData
+  if (!(data instanceof FormData)) {
+    data.token = token;
+  }
+
+  return api.post(url, data);
 };
+
+// ------------------------------------------------------------
+// File Upload Helper (Documents Upload)
+// ------------------------------------------------------------
+export const uploadFile = (url, file, extraFields = {}) => {
+  const formData = new FormData();
+  const token = localStorage.getItem("jif_token");
+
+  // Required by backend
+  formData.append("token", token);
+  formData.append("file", file);
+
+  Object.entries(extraFields).forEach(([key, value]) => {
+    formData.append(key, value);
+  });
+
+  return api.post(url, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+// ------------------------------------------------------------
+// Standard GET wrapper (auto appends ?token=)
+// ------------------------------------------------------------
+export const getWithToken = (url) => {
+  const token = localStorage.getItem("jif_token");
+  return api.get(`${url}?token=${token}`);
+};
+
+export default api;
